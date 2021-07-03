@@ -93,4 +93,4 @@ EOF
 [terraform-aws-eks]: https://github.com/terraform-aws-modules/terraform-aws-eks
 [eks]: eks
 [deploy.sh]: deploy.sh
-[env/example.tfvars]: env/exapmle.tfvars
+[env/example.tfvars]: env/example.tfvars
