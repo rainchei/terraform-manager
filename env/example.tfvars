@@ -8,12 +8,12 @@ eks_cluster_name    = "kube-example-com"
 eks_cluster_version = "1.19"
 eks_vpc_id          = "vpc-xxx"
 eks_subnets = [
-  "subnet-xxx",         # private us-west-2a
-  "subnet-xxx"          # private us-west-2b
+  "subnet-xxx", # private us-west-2a
+  "subnet-xxx"  # private us-west-2b
 ]
 eks_api_public_access = [
-  "x.x.x.x/32",   # nat - private us-west-2a
-  "x.x.x.x/32",  # nat - private us-west-2b
+  "x.x.x.x/32", # nat - private us-west-2a
+  "x.x.x.x/32", # nat - private us-west-2b
 ]
 eks_manage_aws_auth = "true"
 eks_map_roles = [
