@@ -1,6 +1,6 @@
 # terraform-manager
 
-Provide a place to manage Terraform configs easily.
+Manage Terraform modules in one place.
 
 ## Prereqs
 
