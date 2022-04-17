@@ -1,4 +1,3 @@
-variable "env" {}
 variable "eks_cluster_name" {}
 variable "eks_cluster_version" {}
 variable "eks_vpc_id" {}
