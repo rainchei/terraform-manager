@@ -1,48 +1,44 @@
 # general
 env             = "example"
 s3_state_bucket = "example-tf-state"
-region          = "us-west-2"
+region          = "ap-northeast-1"
+
+# vpc
+vpc_name = "example-vpc"
 
 # eks
-eks_cluster_name    = "kube-example-com"
-eks_cluster_version = "1.19"
-eks_vpc_id          = "vpc-xxx"
-eks_subnets = [
-  "subnet-xxx", # private us-west-2a
-  "subnet-xxx"  # private us-west-2b
+eks_cluster_name                   = "example-kube"
+eks_cluster_version                = "1.22"
+eks_cluster_endpoint_public_access = "true"
+eks_cluster_endpoint_public_access_cidrs = [
+  "0.0.0.0/0" # open to all traffic
 ]
-eks_api_public_access = [
-  "x.x.x.x/32", # nat - private us-west-2a
-  "x.x.x.x/32", # nat - private us-west-2b
+eks_vpc_id = "vpc-xxx"
+eks_subnet_ids = [
+  "subnet-xxx", # private ap-northeast-1a
+  "subnet-xxx"  # private ap-northeast-1c
 ]
-eks_manage_aws_auth = "true"
-eks_map_roles = [
+eks_manage_aws_auth_configmap = "true"
+eks_aws_auth_roles = [
   {
-    rolearn  = "arn:aws:iam::xxx:role/eks_admin"
-    username = "eks_admin"
+    rolearn  = "arn:aws:iam::777777777777:role/admin_role"
+    username = "admin_role"
     groups   = ["system:masters"]
-  },
+  }
+]
+eks_aws_auth_users = [
   {
-    rolearn  = "arn:aws:iam::xxx:role/eks_default_admin"
-    username = "default-admin"
-    groups   = ["default-admin"]
+    userarn  = "arn:aws:iam::777777777777:user/admin_user"
+    username = "admin_user"
+    groups   = ["system:masters"]
   }
 ]
 eks_node_group_capacity_type = "SPOT" # ON_DEMAND or SPOT
 eks_node_group_instance_types = [
-  "m5.xlarge",
-  "m5a.xlarge",
-  "m5ad.xlarge",
-  "m5d.xlarge",
-  "m4.xlarge",
-  "t3a.xlarge",
-  "t3.xlarge",
-  "t2.xlarge",
-  "r5.xlarge",
-  "r4.xlarge",
-  "r3.xlarge"
+  "t3.small",
 ]
-eks_node_group_asg_max       = 8
-eks_node_group_asg_min       = 1
-eks_node_group_asg_desire    = 4
+eks_node_group_disk_size     = 20
+eks_node_group_max_size      = 2
+eks_node_group_min_size      = 1
+eks_node_group_desired_size  = 2
 eks_node_group_additional_sg = "sg-xxx" # default
