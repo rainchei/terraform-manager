@@ -56,6 +56,8 @@ module "eks" {
   vpc_id     = var.eks_vpc_id
   subnet_ids = var.eks_subnet_ids
 
+  create_node_security_group = "false" # to avoid error expect exactly one securityGroup tagged with kubernetes.io/cluster/<cluster-name> for eni
+
   ## Extend cluster security group rules
   #cluster_security_group_additional_rules = {
   #  egress_nodes_ephemeral_ports_tcp = {
