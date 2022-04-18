@@ -1,6 +1,6 @@
 # terraform-manager
 
-Manage Terraform modules in one place.
+Manage Terraform modules for AWS Services in one place.
 
 ## Prereqs
 
@@ -17,10 +17,14 @@ Place to assign values for variables that defined within a module. They may be d
 
 If you are familiar with Terraform, it should be straightforward to run on this project. 
 We have provided a [deploy.sh] for you, so you don't have to `cd` to each module. All you need to do is ensuring
+- S3 Bucket: Storage for terraform state file
+    ```
+    aws s3 mb s3://my-tf-state-cheilin
+    ```
 - Env: example (i.e. [env/example.tfvars]) ...
 - Module: eks (i.e. [eks]), vpc, or rds ...
 
-## Usage Example
+## Usage Example - EKS
 
 Initialize the working directory
 ```
