@@ -1,107 +1,155 @@
 variable "eks_cluster_name" {}
 variable "eks_cluster_version" {}
+variable "eks_cluster_endpoint_public_access" {}
+variable "eks_cluster_endpoint_public_access_cidrs" {}
 variable "eks_vpc_id" {}
-variable "eks_subnets" {}
-variable "eks_api_public_access" {}
-variable "eks_manage_aws_auth" {}
-variable "eks_map_roles" {}
+variable "eks_subnet_ids" {}
+variable "eks_manage_aws_auth_configmap" {}
+variable "eks_aws_auth_roles" {}
+variable "eks_aws_auth_users" {}
 variable "eks_node_group_capacity_type" {}
 variable "eks_node_group_instance_types" {}
-variable "eks_node_group_asg_desire" {}
-variable "eks_node_group_asg_max" {}
-variable "eks_node_group_asg_min" {}
+variable "eks_node_group_disk_size" {}
+variable "eks_node_group_desired_size" {}
+variable "eks_node_group_max_size" {}
+variable "eks_node_group_min_size" {}
 variable "eks_node_group_additional_sg" {}
 
-data "aws_eks_cluster" "cluster" {
-  name = module.eks.cluster_id
-}
-data "aws_eks_cluster_auth" "cluster" {
-  name = module.eks.cluster_id
+provider "kubernetes" {
+  host                   = module.eks.cluster_endpoint
+  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+
+  exec {
+    api_version = "client.authentication.k8s.io/v1alpha1"
+    command     = "aws"
+    # This requires the awscli to be installed locally where Terraform is executed
+    args = ["eks", "get-token", "--cluster-name", module.eks.cluster_id]
+  }
 }
 
-provider "kubernetes" {
-  host                   = data.aws_eks_cluster.cluster.endpoint
-  cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority.0.data)
-  token                  = data.aws_eks_cluster_auth.cluster.token
-}
 
 module "eks" {
-  source                               = "terraform-aws-modules/eks/aws"
-  cluster_name                         = var.eks_cluster_name
-  cluster_version                      = var.eks_cluster_version
-  vpc_id                               = var.eks_vpc_id
-  subnets                              = var.eks_subnets
-  cluster_endpoint_public_access_cidrs = var.eks_api_public_access
-  manage_aws_auth                      = var.eks_manage_aws_auth
-  map_roles                            = var.eks_map_roles
-  tags = {
-    Environment = var.env
-  }
+  source = "terraform-aws-modules/eks/aws"
 
-  node_groups = {
-    default = {
-      capacity_type           = var.eks_node_group_capacity_type
-      instance_types          = var.eks_node_group_instance_types
-      desired_capacity        = var.eks_node_group_asg_desire
-      max_capacity            = var.eks_node_group_asg_max
-      min_capacity            = var.eks_node_group_asg_min
-      launch_template_id      = aws_launch_template.eks_node_group.id
-      launch_template_version = aws_launch_template.eks_node_group.default_version
-      k8s_labels = {
-        Environment = var.env
-      }
-      additional_tags = {
-        Name = "${var.eks_cluster_name}-managed-nodes"
-      }
+  cluster_name    = var.eks_cluster_name
+  cluster_version = var.eks_cluster_version
+
+  cluster_endpoint_private_access      = true
+  cluster_endpoint_public_access       = var.eks_cluster_endpoint_public_access
+  cluster_endpoint_public_access_cidrs = var.eks_cluster_endpoint_public_access_cidrs
+
+  cluster_addons = {
+    coredns = {
+      resolve_conflicts = "OVERWRITE"
+    }
+    kube-proxy = {}
+    vpc-cni = {
+      resolve_conflicts = "OVERWRITE"
     }
   }
-}
 
-resource "aws_launch_template" "eks_node_group" {
-  name_prefix            = "eks-node-group"
-  description            = "Launch-Template for EKS Node Group"
-  update_default_version = true
-  tags = {
-    Environment = var.env
-  }
+  cluster_encryption_config = [{
+    provider_key_arn = aws_kms_key.eks.arn
+    resources        = ["secrets"]
+  }]
 
-  block_device_mappings {
-    device_name = "/dev/xvda"
-    ebs {
-      volume_size           = 100
-      volume_type           = "gp3"
-      delete_on_termination = true
-    }
-  }
-  network_interfaces {
-    associate_public_ip_address = false
-    delete_on_termination       = true
-    security_groups = [
-      module.eks.worker_security_group_id,
+  vpc_id     = var.eks_vpc_id
+  subnet_ids = var.eks_subnet_ids
+
+  ## Extend cluster security group rules
+  #cluster_security_group_additional_rules = {
+  #  egress_nodes_ephemeral_ports_tcp = {
+  #    description                = "To node 1025-65535"
+  #    protocol                   = "tcp"
+  #    from_port                  = 1025
+  #    to_port                    = 65535
+  #    type                       = "egress"
+  #    source_node_security_group = true
+  #  }
+  #}
+  #
+  ## Extend node-to-node security group rules
+  #node_security_group_additional_rules = {
+  #  ingress_self_all = {
+  #    description = "Node to node all ports/protocols"
+  #    protocol    = "-1"
+  #    from_port   = 0
+  #    to_port     = 0
+  #    type        = "ingress"
+  #    self        = true
+  #  }
+  #  egress_all = {
+  #    description      = "Node all egress"
+  #    protocol         = "-1"
+  #    from_port        = 0
+  #    to_port          = 0
+  #    type             = "egress"
+  #    cidr_blocks      = ["0.0.0.0/0"]
+  #    ipv6_cidr_blocks = ["::/0"]
+  #  }
+  #}
+
+  # EKS Managed Node Group(s)
+  eks_managed_node_group_defaults = {
+    ami_type       = "AL2_x86_64"
+    disk_size      = var.eks_node_group_disk_size
+    instance_types = var.eks_node_group_instance_types
+
+    attach_cluster_primary_security_group = true
+    vpc_security_group_ids = [
       var.eks_node_group_additional_sg
     ]
   }
-  monitoring {
-    enabled = true
-  }
-  lifecycle {
-    create_before_destroy = true
+
+  eks_managed_node_groups = {
+    #blue = {}
+    green = {
+      min_size     = var.eks_node_group_min_size
+      max_size     = var.eks_node_group_max_size
+      desired_size = var.eks_node_group_desired_size
+
+      instance_types = var.eks_node_group_instance_types
+      capacity_type  = var.eks_node_group_capacity_type
+      labels = {
+        Environment = var.env
+        GithubRepo  = "terraform-aws-eks"
+        GithubOrg   = "terraform-aws-modules"
+      }
+
+      #taints = {
+      #  dedicated = {
+      #    key    = "dedicated"
+      #    value  = "gpuGroup"
+      #    effect = "NO_SCHEDULE"
+      #  }
+      #}
+
+      update_config = {
+        max_unavailable_percentage = 50 # or set `max_unavailable`
+      }
+
+      tags = {
+        Environment = var.env
+      }
+    }
   }
 
-  # Supplying custom tags to EKS instances is another use-case for LaunchTemplates
-  tag_specifications {
-    resource_type = "instance"
-    tags = {
-      Name        = "${var.eks_cluster_name}-managed-nodes"
-      Environment = var.env
-    }
+  # aws-auth configmap
+  manage_aws_auth_configmap = var.eks_manage_aws_auth_configmap
+  aws_auth_roles            = var.eks_aws_auth_roles
+  aws_auth_users            = var.eks_aws_auth_users
+
+  tags = {
+    Environment = var.env
   }
-  # Supplying custom tags to EKS instances root volumes is another use-case for LaunchTemplates. (doesnt add tags to dynamically provisioned volumes via PVC tho)
-  tag_specifications {
-    resource_type = "volume"
-    tags = {
-      Name        = "${var.eks_cluster_name}-managed-nodes"
-      Environment = var.env
-    }
+}
+
+resource "aws_kms_key" "eks" {
+  description             = "EKS Secret Encryption Key"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+
+  tags = {
+    Environment = var.env
   }
 }
